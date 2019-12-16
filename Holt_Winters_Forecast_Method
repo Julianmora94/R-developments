@@ -1,0 +1,903 @@
+###############
+## LIBRERIAS ##
+###############
+
+library(odbc)
+library(RODBC)
+library(tictoc)
+library(dplyr)
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(tseries)
+library(TSA)
+library(lubridate)
+library(plotly)
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(reshape)
+library(scales)
+library(plotly)
+library(mosaic)
+
+##################################
+######## CARGA FUENTE RyT ########
+##################################
+
+#####################################################################################################################
+## Archivos Ruta/Servidor
+
+tic("Carga RyT")
+con <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=//BOGAK08beimrodc/BI/Consumo/Seguimiento_KPI_2018.accdb")
+conn <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=//BOGAK08beimrodc/BI/Consumo/Seguimiento_KPI_2019.accdb")
+
+Ryt_2018_emp <- sqlQuery(con , paste0("select * from Emp_RyT"))
+Ryt_2018_ind <- sqlQuery(con , paste0("select * from Ind_RyT"))
+
+Ryt_2019_emp <- sqlQuery(conn , paste0("select * from Emp_RyT"))
+Ryt_2019_ind <- sqlQuery(conn , paste0("select * from Ind_RyT"))
+
+Ryt_2018_emp <- as_data_frame(Ryt_2018_emp)
+Ryt_2018_ind <- as_data_frame(Ryt_2018_ind)
+
+Ryt_2019_emp <- as_data_frame(Ryt_2019_emp)
+Ryt_2019_ind <- as_data_frame(Ryt_2019_ind)
+
+odbcCloseAll()
+toc()
+
+#####################################################################################################################
+## Archivos Locales
+
+tic("Carga RyT")
+con <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:/Users/hernyatt/Desktop/Recreacion/RyT/Seguimiento_KPI_2018.accdb")
+Ryt_2018_emp <- sqlQuery(con , paste0("select * from Emp_RyT"))
+Ryt_2018_ind <- sqlQuery(con , paste0("select * from Ind_RyT"))
+
+
+connne <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:/Users/hernyatt/Desktop/Recreacion/RyT/Seguimiento_KPI_2019.accdb")
+Ryt_2019_emp <- sqlQuery(connne , paste0("select * from Emp_RyT"))
+Ryt_2019_ind <- sqlQuery(connne , paste0("select * from Ind_RyT"))
+
+connnect <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=C:/Users/hernyatt/Desktop/Recreacion/RyT/Recreacion.accdb")
+Ryt_emp <- sqlQuery(connnect , paste0("select * from Recreacion_empresarial"))
+Ryt_Ind <- sqlQuery(connnect , paste0("select * from Recreacion_Individual"))
+
+odbcCloseAll()
+toc()
+
+Ryt_2018_emp <- as_data_frame(Ryt_2018_emp)
+Ryt_2018_ind <- as_data_frame(Ryt_2018_ind)
+
+Ryt_2019_emp <- as_data_frame(Ryt_2019_emp)
+Ryt_2019_ind <- as_data_frame(Ryt_2019_ind)
+
+Ryt_emp <- as.data.frame(Ryt_emp)
+Ryt_Ind <- as.data.frame(Ryt_Ind)
+
+#######################################################
+######## HOMOLOGACIONES Y CREACION DE VARIABLES #######
+#######################################################
+
+## Consolidacion Ryt 2018 y 2019
+Ryt_2019_emp<-Ryt_2019_emp[,-18]
+
+Ryt_Acum_18_19 <- bind_rows(Ryt_2018_emp,Ryt_2019_emp)
+
+Ryt_2018_ind<-Ryt_2018_ind[,-20]
+Ryt_2019_ind<-Ryt_2019_ind[,-20]
+
+Ryt_Acum_18_19_ind <- bind_rows(Ryt_2018_ind,Ryt_2019_ind)
+
+names(Ryt_emp)
+names(Ryt_Ind)
+
+remove(Ryt_2018_emp,Ryt_2019_emp,Ryt_2018_ind,Ryt_2019_ind)
+
+saveRDS(Ryt_Acum_18_19, file = "Ryt_Acum_18_19.rds")
+saveRDS(Ryt_Acum_18_19_ind, file = "Ryt_Acum_18_19_ind.rds")
+saveRDS(Ryt_emp, file = "Ryt_emp.rds")
+saveRDS(Ryt_Ind, file = "Ryt_Ind.rds")
+
+
+#################
+## Empresarial ##
+#################
+
+setwd("C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT")
+
+# Ryt_Acum_18_19$piramide_1 <- str_trim(Ryt_Acum_18_19$piramide_1, side = "both")
+
+a<-Ryt_Acum_18_19 %>% group_by(producto) %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+write.csv2(a,'C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT/Empresarial_Productos.csv', row.names = FALSE)
+remove(a)
+
+Ryt_Acum_18_19 <- Ryt_Acum_18_19 %>% mutate(producto_h=case_when(is.na(producto) ~ "Sin Información",
+                                                                 producto=="Hotel Alcaravan" ~ "Hotel Alcaravan",  
+                                                                 producto=="HOTEL ALCARAVAN" ~ "Hotel Alcaravan",
+                                                                 producto=="Hotel Bosques de Athan" ~ "Hotel Bosques de Athan",
+                                                                 producto=="HOTEL BOSQUES DE ATHAN" ~ "Hotel Bosques de Athan",
+                                                                 producto=="Hotel Paipa" ~ "Hotel Paipa",
+                                                                 producto=="HOTEL PAIPA" ~ "Hotel Paipa",
+                                                                 producto=="Hotel Peñalisa" ~ "Hotel Peñalisa",
+                                                                 producto=="HOTEL PEÑALISA" ~ "Hotel Peñalisa",
+                                                                 
+                                                                 producto=="Piscilago" ~ "Piscilago",
+                                                                 producto=="PISCILAGO" ~ "Piscilago",
+                                                                 
+                                                                 producto=="Club Bellavista" ~ "Club Bellavista",  
+                                                                 producto=="CLUB BELLAVISTA" ~ "Club Bellavista",
+                                                                 producto=="Club Calle 195" ~ "Club Calle 195",
+                                                                 producto=="CLUB CALLE 195" ~ "Club Calle 195",
+                                                                 producto=="Club El Cubo" ~ "Club El Cubo",
+                                                                 producto=="CLUB EL CUBO" ~ "Club El Cubo",
+                                                                 producto=="Club la Colina" ~ "Club la Colina",
+                                                                 producto=="CLUB LA COLINA" ~ "Club la Colina",
+                                                                 
+                                                                 producto=="Programas Recreativos" ~ "Recreacion",
+                                                                 producto=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                                 
+                                                                 producto=="Programas Deportivos" ~ "Deporte",
+                                                                 producto=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                                 
+                                                                 producto=="Agencia de viajes" ~ "Turismo",
+                                                                 
+                                                                 producto=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                                 producto=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                                 
+                                                                 producto=="Otros" ~ "Otros",
+                                                                 producto=="OTROS" ~ "Otros",
+                                                                 TRUE~ "Otros"))
+
+
+Ryt_Acum_18_19 %>% group_by(producto,producto_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+Ryt_Acum_18_19 <- Ryt_Acum_18_19 %>% mutate(linea_Negocio=case_when(is.na(producto) ~ "Sin Información",
+                                                                    producto=="Hotel Alcaravan" ~ "hoteles",  
+                                                                    producto=="HOTEL ALCARAVAN" ~ "hoteles",
+                                                                    producto=="Hotel Bosques de Athan" ~ "hoteles",
+                                                                    producto=="HOTEL BOSQUES DE ATHAN" ~ "hoteles",
+                                                                    producto=="Hotel Paipa" ~ "hoteles",
+                                                                    producto=="HOTEL PAIPA" ~ "hoteles",
+                                                                    producto=="Hotel Peñalisa" ~ "hoteles",
+                                                                    producto=="HOTEL PEÑALISA" ~ "hoteles",
+                                                                    
+                                                                    producto=="Piscilago" ~ "Piscilago",
+                                                                    producto=="PISCILAGO" ~ "Piscilago",
+                                                                    
+                                                                    producto=="Club Bellavista" ~ "clubes",  
+                                                                    producto=="CLUB BELLAVISTA" ~ "clubes",
+                                                                    producto=="Club Calle 195" ~ "clubes",
+                                                                    producto=="CLUB CALLE 195" ~ "clubes",
+                                                                    producto=="Club El Cubo" ~ "clubes",
+                                                                    producto=="CLUB EL CUBO" ~ "clubes",
+                                                                    producto=="Club la Colina" ~ "clubes",
+                                                                    producto=="CLUB LA COLINA" ~ "clubes",
+                                                                    
+                                                                    producto=="Programas Recreativos" ~ "Recreacion",
+                                                                    producto=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                                    
+                                                                    producto=="Programas Deportivos" ~ "Deporte",
+                                                                    producto=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                                    
+                                                                    producto=="Agencia de viajes" ~ "Turismo",
+                                                                    
+                                                                    producto=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                                    producto=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                                    
+                                                                    producto=="Otros" ~ "Otros",
+                                                                    producto=="OTROS" ~ "Otros",
+                                                                    TRUE~ "Otros"))
+
+Ryt_Acum_18_19 %>% group_by(producto_h,linea_Negocio) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+Ryt_Acum_18_19 <- Ryt_Acum_18_19 %>% mutate(piramide_1_h=case_when(piramide_1=="1 Emp Grandes" ~ "Emp Grandes",
+                                                                   piramide_1=="2 Emp Medio" ~ "Emp Medio",
+                                                                   piramide_1=="3 Empresas Pymes" ~ "Empresas Pymes",
+                                                                   piramide_1=="4 Micro" ~ "Micro",
+                                                                   piramide_1=="5 Micro" ~ "Micro",
+                                                                   piramide_1=="6 Otros" ~ "Otros",
+                                                                   piramide_1=="No Afiliada" ~ "No Afiliada",
+                                                                   TRUE~ "Otros"))
+
+Ryt_Acum_18_19 %>% group_by(piramide_1,piramide_1_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+Ryt_Acum_18_19 <- Ryt_Acum_18_19 %>% mutate(piramide_2_h=case_when(piramide_2=="1.1 Platinum" ~ "1.1 Platinum",
+                                                                   piramide_2=="1.2 Premium" ~ "1.2 Premium",
+                                                                   piramide_2=="2.1 Gold" ~ "2.1 Gold",
+                                                                   piramide_2=="2.2 Silver" ~ "2.2 Silver",
+                                                                   piramide_2=="3.1 VIP" ~ "3.1 VIP",
+                                                                   piramide_2=="3.2 VIP Estándar" ~ "3.2 VIP Estándar",
+                                                                   piramide_2=="4.1 Estándar" ~ "4.1 Estándar",
+                                                                   piramide_2=="4.2 Trans. Mas de 100 Trab." ~ "4.2 Trans. Mas de 100 Trab.",
+                                                                   piramide_2=="4.3 Trans.Juridica Ent. 11 a 99 Trab." ~ "4.3 Trans.Juridica Ent. 11 a 99 Trab.",
+                                                                   piramide_2=="4.4 Trans.Natural Ent. 11 a 99 Trab." ~ "4.4 Trans.Natural Ent. 11 a 99 Trab.",
+                                                                   piramide_2=="4.5 Transaccional" ~ "4.5 Transaccional",
+                                                                   piramide_2=="4.7 Transaccional - Independiente" ~ "4.7 Transaccional - Independiente",
+                                                                   piramide_2=="4.8 Transaccional - Pensionado" ~ "4.8 Transaccional - Pensionado",
+                                                                   piramide_2=="5.1 Colsubsidio" ~ "5.1 Colsubsidio",
+                                                                   piramide_2=="No afiliada" ~ "No Afiliada",
+                                                                   piramide_2=="No Afiliada" ~ "No Afiliada",
+                                                                   TRUE~ "Otros"))
+
+
+Ryt_Acum_18_19 %>% group_by(piramide_2,piramide_2_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+
+
+###################################
+## Informacion Perfil de Usuario ##
+###################################
+
+## Empresarial
+names(Ryt_Acum_18_19)
+View(Ryt_Acum_18_19)
+
+info_emp_perfil <- Ryt_Acum_18_19 %>%
+  group_by(no_documento,linea_Negocio,piramide_1_h,piramide_2_h) %>%
+  filter(Fecha >= '2019-01-01') %>%
+  summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+View(info_emp_perfil)
+write.csv2(info_emp_perfil,'C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT/info_emp_perfil.csv', row.names = FALSE)
+remove(info_emp_perfil)
+
+
+#####################################
+### RESUMEN DE CIFRAS EMPRESARIAL ###
+#####################################
+
+emp_ventas <- Ryt_Acum_18_19 %>% group_by(Mes) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+colnames(emp_ventas) <- c("Mes","Ventas Empresarial")
+emp_ventas
+
+emp_ventas_Producto <- Ryt_Acum_18_19 %>% group_by(Mes,producto_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+emp_ventas_Producto <- cast(emp_ventas_Producto, producto_h~Mes,sum)
+colnames(emp_ventas_Producto) <- c("producto_h","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio")
+emp_ventas_Producto
+
+emp_ventas_Piramides <- Ryt_Acum_18_19 %>% group_by(Mes,piramide_1_h,piramide_2_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+emp_ventas_Piramides <- cast(emp_ventas_Piramides, piramide_1_h+piramide_2_h~Mes,sum)
+colnames(emp_ventas_Piramides) <- c("piramide_1_h","piramide_2_h","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio")
+emp_ventas_Piramides
+
+########################
+##  Serie Empresarial ##
+########################
+
+emp_serie <-Ryt_Acum_18_19 %>% group_by(Fecha) %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+plot_ly(emp_serie, x = ~Fecha, y = ~Ventas/1000000, type = 'scatter', mode = 'lines+markers')
+
+table1 <- table(Ryt_Acum_18_19$piramide_1_h, Ryt_Acum_18_19$piramide_2_h)
+
+mosaicplot(table1, main = "Participación Segmento Empresarial",
+           xlab = "Piramide_1",
+           ylab = "Piramide_2",
+           las = 1,
+           color = "skyblue2",
+           border = "chocolate")
+
+
+barplot(table(Ryt_Acum_18_19$piramide_1_h),main="piramide_1")
+
+barplot(table1)
+
+tab2 <- prop.table(table1, 2)
+
+barplot(tab2)
+
+barplot(tab2*100)
+
+barplot(tab2*100,
+        main = "Relación Piramide_1 y Piramide_2",
+        ylab = "Frecuencias relativas (%)")
+
+barplot(tab2*100,
+        main = "Relación Piramide_1 y Piramide_2",
+        ylab = "Frecuencias relativas (%)",
+        xlab = " Piramide_2",
+        legend = T)
+
+barplot(tab2*100,
+        main = "Resultados de la encuesta",
+        xlab = "Frecuencias relativas (%)",
+        legend = T,
+        width = 0.5, ylim = c(0, 2.5),
+        horiz = T)
+
+
+tab2 <- as.data.frame(tab2)
+
+ggplot(tab2, aes(x = reorder(row.names(tab2), Var2), y = Var2, fill = factor(Var1))) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_minimal() +
+  ggtitle("Fig. A: Default fill colors")
+
+
+ggplot(tab2, aes(reorder(row.names(tab2), Var1), Var1)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  geom_text(aes(label = mpg), nudge_y = 2)
+
+############################################################################################################################################################
+############################################################################################################################################################
+
+
+#################
+## Individual  ##
+#################
+
+b<-Ryt_Acum_18_19_ind %>% group_by(producto) %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+write.csv2(b,'C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT/Individual_Productos.csv', row.names = FALSE)
+remove(b)
+
+Ryt_Acum_18_19_ind <- Ryt_Acum_18_19_ind %>% mutate(producto_h=case_when(is.na(producto) ~ "Sin Información",
+                                                                         producto=="Hotel Alcaravan" ~ "Hotel Alcaravan",  
+                                                                         producto=="HOTEL ALCARAVAN" ~ "Hotel Alcaravan",
+                                                                         producto=="Hotel Bosques de Athan" ~ "Hotel Bosques de Athan",
+                                                                         producto=="HOTEL BOSQUES DE ATHAN" ~ "Hotel Bosques de Athan",
+                                                                         producto=="Hotel Paipa" ~ "Hotel Paipa",
+                                                                         producto=="HOTEL PAIPA" ~ "Hotel Paipa",
+                                                                         producto=="Hotel Peñalisa" ~ "Hotel Peñalisa",
+                                                                         producto=="HOTEL PEÑALISA" ~ "Hotel Peñalisa",
+                                                                         
+                                                                         producto=="Piscilago" ~ "Piscilago",
+                                                                         producto=="PISCILAGO" ~ "Piscilago",
+                                                                         
+                                                                         producto=="Club Bellavista" ~ "Club Bellavista",  
+                                                                         producto=="CLUB BELLAVISTA" ~ "Club Bellavista",
+                                                                         producto=="Club Calle 195" ~ "Club Calle 195",
+                                                                         producto=="CLUB CALLE 195" ~ "Club Calle 195",
+                                                                         producto=="Club El Cubo" ~ "Club El Cubo",
+                                                                         producto=="CLUB EL CUBO" ~ "Club El Cubo",
+                                                                         producto=="Club la Colina" ~ "Club la Colina",
+                                                                         producto=="CLUB LA COLINA" ~ "Club la Colina",
+                                                                         
+                                                                         producto=="Programas Recreativos" ~ "Recreacion",
+                                                                         producto=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                                         
+                                                                         producto=="Programas Deportivos" ~ "Deporte",
+                                                                         producto=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                                         
+                                                                         producto=="Agencia de viajes" ~ "Turismo",
+                                                                         producto=="AGENCIA DE VIAJES" ~ "Turismo",
+                                                                         
+                                                                         producto=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                                         producto=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                                         
+                                                                         producto=="Otros" ~ "Otros",
+                                                                         producto=="OTROS" ~ "Otros",
+                                                                         TRUE~ "Otros"))
+
+
+Ryt_Acum_18_19_ind %>% group_by(producto,producto_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+Ryt_Acum_18_19_ind <- Ryt_Acum_18_19_ind %>% mutate(linea_Negocio=case_when(is.na(producto) ~ "Sin Información",
+                                                                            producto=="Hotel Alcaravan" ~ "hoteles",  
+                                                                            producto=="HOTEL ALCARAVAN" ~ "hoteles",
+                                                                            producto=="Hotel Bosques de Athan" ~ "hoteles",
+                                                                            producto=="HOTEL BOSQUES DE ATHAN" ~ "hoteles",
+                                                                            producto=="Hotel Paipa" ~ "hoteles",
+                                                                            producto=="HOTEL PAIPA" ~ "hoteles",
+                                                                            producto=="Hotel Peñalisa" ~ "hoteles",
+                                                                            producto=="HOTEL PEÑALISA" ~ "hoteles",
+                                                                            
+                                                                            producto=="Piscilago" ~ "Piscilago",
+                                                                            producto=="PISCILAGO" ~ "Piscilago",
+                                                                            
+                                                                            producto=="Club Bellavista" ~ "clubes",  
+                                                                            producto=="CLUB BELLAVISTA" ~ "clubes",
+                                                                            producto=="Club Calle 195" ~ "clubes",
+                                                                            producto=="CLUB CALLE 195" ~ "clubes",
+                                                                            producto=="Club El Cubo" ~ "clubes",
+                                                                            producto=="CLUB EL CUBO" ~ "clubes",
+                                                                            producto=="Club la Colina" ~ "clubes",
+                                                                            producto=="CLUB LA COLINA" ~ "clubes",
+                                                                            
+                                                                            producto=="Programas Recreativos" ~ "Recreacion",
+                                                                            producto=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                                            
+                                                                            producto=="Programas Deportivos" ~ "Deporte",
+                                                                            producto=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                                            
+                                                                            producto=="Agencia de viajes" ~ "Turismo",
+                                                                            producto=="AGENCIA DE VIAJES" ~ "Turismo",
+                                                                            
+                                                                            producto=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                                            producto=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                                            
+                                                                            producto=="Otros" ~ "Otros",
+                                                                            producto=="OTROS" ~ "Otros",
+                                                                            TRUE~ "Otros"))
+
+Ryt_Acum_18_19_ind %>% group_by(producto_h,linea_Negocio) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+Ryt_Acum_18_19_ind <- Ryt_Acum_18_19_ind %>% mutate(piramide_1_h=case_when(piramide_1=="1 Emp Grandes" ~ "Emp Grandes",
+                                                                           piramide_1=="2 Emp Medio" ~ "Emp Medio",
+                                                                           piramide_1=="3 Empresas Pymes" ~ "Empresas Pymes",
+                                                                           piramide_1=="4 Micro" ~ "Micro",
+                                                                           piramide_1=="5 Micro" ~ "Micro",
+                                                                           piramide_1=="6 Otros" ~ "Otros",
+                                                                           piramide_1=="No Afiliada" ~ "No Afiliada",
+                                                                           TRUE~ "Otros"))
+
+Ryt_Acum_18_19_ind %>% group_by(piramide_1,piramide_1_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+Ryt_Acum_18_19_ind <- Ryt_Acum_18_19_ind %>% mutate(piramide_2_h=case_when(piramide_2=="1.1 Platinum" ~ "1.1 Platinum",
+                                                                           piramide_2=="1.2 Premium" ~ "1.2 Premium",
+                                                                           piramide_2=="2.1 Gold" ~ "2.1 Gold",
+                                                                           piramide_2=="2.2 Silver" ~ "2.2 Silver",
+                                                                           piramide_2=="3.1 VIP" ~ "3.1 VIP",
+                                                                           piramide_2=="3.2 VIP Estándar" ~ "3.2 VIP Estándar",
+                                                                           piramide_2=="4.1 Estándar" ~ "4.1 Estándar",
+                                                                           piramide_2=="4.2 Trans. Mas de 100 Trab." ~ "4.2 Trans. Mas de 100 Trab.",
+                                                                           piramide_2=="4.3 Trans.Juridica Ent. 11 a 99 Trab." ~ "4.3 Trans.Juridica Ent. 11 a 99 Trab.",
+                                                                           piramide_2=="4.4 Trans.Natural Ent. 11 a 99 Trab." ~ "4.4 Trans.Natural Ent. 11 a 99 Trab.",
+                                                                           piramide_2=="4.5 Transaccional" ~ "4.5 Transaccional",
+                                                                           piramide_2=="4.6 Transaccional - Facultativo" ~ "4.6 Transaccional - Facultativo",
+                                                                           piramide_2=="4.7 Transaccional - Independiente" ~ "4.7 Transaccional - Independiente",
+                                                                           piramide_2=="4.8 Transaccional - Pensionado" ~ "4.8 Transaccional - Pensionado",
+                                                                           piramide_2=="5.1 Colsubsidio" ~ "5.1 Colsubsidio",
+                                                                           piramide_2=="No afiliada" ~ "No Afiliada",
+                                                                           piramide_2=="No Afiliada" ~ "No Afiliada",
+                                                                           TRUE~ "Otros"))
+
+
+Ryt_Acum_18_19_ind %>% group_by(piramide_2,piramide_2_h) %>% filter(Fecha >= '2019-01-01') %>% summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+
+###################################
+## Informacion Perfil de Usuario ##
+###################################
+
+## Individual
+
+
+info_ind_perfil <- Ryt_Acum_18_19_ind %>%
+  group_by(no_documento,linea_Negocio,piramide_1_h,piramide_2_h) %>%
+  filter(Fecha >= '2019-01-01') %>%
+  summarize(Ventas = sum(consumo, na.rm = TRUE))
+
+write.csv2(info_ind_perfil,'C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT/info_ind_perfil.csv', row.names = FALSE)
+remove(info_emp_perfil)
+
+####################################################################################################################################
+################################################### Individual Base pura ###########################################################
+####################################################################################################################################
+
+names(Ryt_Ind)
+
+Ryt_Ind <- Ryt_Ind %>% mutate(producto_h=case_when(is.na(negocio) ~ "Sin Información",
+                                                   negocio=="Hotel Alcaravan" ~ "Hotel Alcaravan",  
+                                                   negocio=="HOTEL ALCARAVAN" ~ "Hotel Alcaravan",
+                                                   negocio=="HOTEL ALCARAVÁN" ~ "Hotel Alcaravan", 
+                                                   
+                                                   negocio=="Hotel Bosques de Athan" ~ "Hotel Bosques de Athan",
+                                                   negocio=="HOTEL BOSQUES DE ATHAN" ~ "Hotel Bosques de Athan",
+                                                   negocio=="HOTEL BOSQUES DE ATHÁN" ~ "Hotel Bosques de Athan",
+                                                   
+                                                   negocio=="Hotel Paipa" ~ "Hotel Paipa",
+                                                   negocio=="HOTEL PAIPA" ~ "Hotel Paipa",
+                                                   negocio=="HOTELES PAIPA" ~ "Hotel Paipa",
+                                                   
+                                                   negocio=="Hotel Peñalisa" ~ "Hotel Peñalisa",
+                                                   negocio=="HOTEL PEÑALISA" ~ "Hotel Peñalisa",
+                                                   
+                                                   negocio=="Piscilago" ~ "Piscilago",
+                                                   negocio=="PISCILAGO" ~ "Piscilago",
+                                                   
+                                                   negocio=="Club Bellavista" ~ "Club Bellavista",  
+                                                   negocio=="CLUB BELLAVISTA" ~ "Club Bellavista",
+                                                   
+                                                   negocio=="Club Calle 195" ~ "Club Calle 195",
+                                                   negocio=="CLUB CALLE 195" ~ "Club Calle 195",
+                                                   negocio=="CENTRO DEPORTIVO 195" ~ "CENTRO DEPORTIVO 195",
+                                                   
+                                                   negocio=="Club El Cubo" ~ "Club El Cubo",
+                                                   negocio=="CLUB EL CUBO" ~ "Club El Cubo",
+                                                   negocio=="CENTRO EMPRESARIAL Y RECREATIVO - EL CUBO" ~ "Club El Cubo",
+                                                   
+                                                   negocio=="Club la Colina" ~ "Club la Colina",
+                                                   negocio=="CLUB LA COLINA" ~ "Club la Colina",
+                                                   negocio=="CLUB COLINA" ~ "Club la Colina",
+                                                   
+                                                   negocio=="Programas Recreativos" ~ "Recreacion",
+                                                   negocio=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                   negocio=="PROGRAMAS RECREATIVOS " ~ "Recreacion",
+                                                   
+                                                   negocio=="Programas Deportivos" ~ "Deporte",
+                                                   negocio=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                   
+                                                   negocio=="Agencia de viajes" ~ "Turismo",
+                                                   negocio=="AGENCIA DE VIAJES" ~ "Turismo",
+                                                   
+                                                   negocio=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                   negocio=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                   
+                                                   negocio=="Otros" ~ "Otros",
+                                                   negocio=="OTROS" ~ "Otros",
+                                                   TRUE~ "Otros"))
+
+
+Ryt_Ind %>% group_by(negocio,producto_h) %>% filter(fecha >= '2019-01-01') %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+
+Ryt_Ind <- Ryt_Ind %>% mutate(linea_Negocio=case_when(is.na(negocio) ~ "Sin Información",
+                                                      negocio=="Hotel Alcaravan" ~ "hoteles",  
+                                                      negocio=="HOTEL ALCARAVAN" ~ "hoteles",
+                                                      negocio=="HOTEL ALCARAVÁN" ~ "hoteles",
+                                                      
+                                                      negocio=="Hotel Bosques de Athan" ~ "hoteles",
+                                                      negocio=="HOTEL BOSQUES DE ATHAN" ~ "hoteles",
+                                                      negocio=="HOTEL BOSQUES DE ATHÁN" ~ "hoteles",
+                                                      
+                                                      negocio=="Hotel Paipa" ~ "hoteles",
+                                                      negocio=="HOTEL PAIPA" ~ "hoteles",
+                                                      negocio=="HOTELES PAIPA" ~ "hoteles",
+                                                      
+                                                      negocio=="Hotel Peñalisa" ~ "hoteles",
+                                                      negocio=="HOTEL PEÑALISA" ~ "hoteles",
+                                                      
+                                                      negocio=="Piscilago" ~ "Piscilago",
+                                                      negocio=="PISCILAGO" ~ "Piscilago",
+                                                      
+                                                      negocio=="Club Bellavista" ~ "clubes",  
+                                                      negocio=="CLUB BELLAVISTA" ~ "clubes",
+                                                      
+                                                      negocio=="Club Calle 195" ~ "clubes",
+                                                      negocio=="CLUB CALLE 195" ~ "clubes",
+                                                      negocio=="CENTRO DEPORTIVO 195" ~ "clubes",
+                                                      
+                                                      negocio=="Club El Cubo" ~ "clubes",
+                                                      negocio=="CLUB EL CUBO" ~ "clubes",
+                                                      negocio=="CENTRO EMPRESARIAL Y RECREATIVO - EL CUBO" ~ "clubes",
+                                                      
+                                                      negocio=="Club la Colina" ~ "clubes",
+                                                      negocio=="CLUB LA COLINA" ~ "clubes",
+                                                      negocio=="CLUB COLINA" ~ "clubes",
+                                                      
+                                                      negocio=="Programas Recreativos" ~ "Recreacion",
+                                                      negocio=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                      negocio=="PROGRAMAS RECREATIVOS " ~ "Recreacion",
+                                                      
+                                                      negocio=="Programas Deportivos" ~ "Deporte",
+                                                      negocio=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                      
+                                                      negocio=="Agencia de viajes" ~ "Turismo",
+                                                      negocio=="AGENCIA DE VIAJES" ~ "Turismo",
+                                                      
+                                                      negocio=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                      negocio=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                      
+                                                      negocio=="Otros" ~ "Otros",
+                                                      negocio=="OTROS" ~ "Otros",
+                                                      TRUE~ "Otros"))
+
+
+Ryt_Ind %>% group_by(producto_h,linea_Negocio) %>% filter(fecha >= '2019-01-01') %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+
+## Prerar informacion
+Ryt_Ind$fecha <- as.Date(Ryt_Ind$fecha)
+Ryt_Ind <- Ryt_Ind %>% mutate(Fecha_H = format(as.Date(fecha, "%Y-%m"), "%Y%m"))
+Informacion_individual <- Ryt_Ind %>% group_by(Fecha_H,producto_h) %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+write.csv2(Informacion_individual,'Individual_Productos.csv', row.names = FALSE)
+
+
+###########################
+## Proyeccion Individual ##
+###########################
+
+## Hotel Alcaravan
+
+Hotel_Alcaravan <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Hotel Alcaravan") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Hotel_Alcaravan_1 <- ts(Hotel_Alcaravan,start = c(2017,1), frequency = 12)
+Hotel_Alcaravan_1<-Hotel_Alcaravan_1[,-1]
+plot(Hotel_Alcaravan_1, main = "Hotel_Alcaravan_Ventas")
+
+hw <- HoltWinters(Hotel_Alcaravan_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+
+# Hotel Peñalisa
+
+Hotel_Peñalisa <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Hotel Peñalisa") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Hotel_Peñalisa_1 <- ts(Hotel_Peñalisa,start = c(2017,1), frequency = 12)
+Hotel_Peñalisa_1<-Hotel_Peñalisa_1[,-1]
+plot(Hotel_Peñalisa_1, main = "Hotel_Peñalisa_Ventas")
+
+hw <- HoltWinters(Hotel_Peñalisa_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# Hotel Bosques de Athan
+
+Hotel_Bosques_de_Athan <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Hotel Bosques de Athan") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Hotel_Bosques_de_Athan_1 <- ts(Hotel_Bosques_de_Athan,start = c(2017,1), frequency = 12)
+Hotel_Bosques_de_Athan_1<-Hotel_Bosques_de_Athan_1[,-1]
+plot(Hotel_Bosques_de_Athan_1, main = "Hotel_Bosques_de_Athan_Ventas")
+
+hw <- HoltWinters(Hotel_Bosques_de_Athan_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# Hotel Paipa
+
+Hotel_Paipa <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Hotel Paipa") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Hotel_Paipa_1 <- ts(Hotel_Paipa,start = c(2017,1), frequency = 12)
+Hotel_Paipa_1<-Hotel_Paipa_1[,-1]
+plot(Hotel_Paipa_1, main = "Hotel_Paipa_Ventas")
+
+hw <- HoltWinters(Hotel_Paipa_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+# Club la Colina
+
+Club_la_Colina <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Club la Colina") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Club_la_Colina_1 <- ts(Club_la_Colina,start = c(2017,1), frequency = 12)
+Club_la_Colina_1<-Club_la_Colina_1[,-1]
+plot(Club_la_Colina_1, main = "Club_la_Colina_Ventas")
+
+hw <- HoltWinters(Club_la_Colina_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+# Club El Cubo
+
+Club_El_Cubo <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Club El Cubo") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+Club_El_Cubo <- Club_El_Cubo[-31,]
+Club_El_Cubo_1 <- ts(Club_El_Cubo,start = c(2017,1), frequency = 12)
+Club_El_Cubo_1<-Club_El_Cubo_1[,-1]
+plot(Club_El_Cubo_1, main = "Club_El_Cubo_Ventas")
+
+hw <- HoltWinters(Club_El_Cubo_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# Club Bellavista
+
+Club_Bellavista <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Club Bellavista") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Club_Bellavista_1 <- ts(Club_Bellavista,start = c(2017,1), frequency = 12)
+Club_Bellavista_1<-Club_Bellavista_1[,-1]
+plot(Club_Bellavista_1, main = "Club_Bellavista_1_Ventas")
+
+hw <- HoltWinters(Club_Bellavista_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# 11   CENTRO DEPORTIVO 195
+
+CENTRO_DEPORTIVO_195 <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "CENTRO DEPORTIVO 195") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+CENTRO_DEPORTIVO_195_1 <- ts(CENTRO_DEPORTIVO_195,start = c(2017,1), frequency = 12)
+CENTRO_DEPORTIVO_195_1<-CENTRO_DEPORTIVO_195_1[,-1]
+plot(CENTRO_DEPORTIVO_195_1, main = "CENTRO_DEPORTIVO_195_1_Ventas")
+
+hw <- HoltWinters(CENTRO_DEPORTIVO_195_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# Piscilago
+
+Piscilago <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Piscilago") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Piscilago_1 <- ts(Piscilago,start = c(2017,1), frequency = 12)
+Piscilago_1<-Piscilago_1[,-1]
+plot(Piscilago_1, main = "Piscilago_1_Ventas")
+
+hw <- HoltWinters(Piscilago_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# Deporte
+
+Deporte <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Deporte") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Deporte_1 <- ts(Deporte,start = c(2017,1), frequency = 12)
+Deporte_1<-Deporte_1[,-1]
+plot(Deporte_1, main = "Deporte_1_Ventas")
+
+hw <- HoltWinters(Deporte_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 18, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+# Recreacion
+
+Recreacion <- Ryt_Ind %>% group_by(Fecha_H) %>% filter(producto_h == "Recreacion") %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+Recreacion_1 <- ts(Recreacion,start = c(2017,1), frequency = 12)
+Recreacion_1<-Recreacion_1[,-1]
+plot(Recreacion_1, main = "Recreacion_1_Ventas")
+
+hw <- HoltWinters(Recreacion_1)
+plot(hw, main = "Pronóstico Ventas")
+
+forecast <- predict(hw, n.ahead = 19, prediction.interval = T, level = 0.95)
+plot(hw, forecast, main = "Pronóstico Ventas")
+
+
+
+
+
+#####################################################################################################################################
+################################################### Empresarial Base pura ###########################################################
+#####################################################################################################################################
+  
+ Ryt_emp <- Ryt_emp %>% mutate(producto_h=case_when(is.na(negocio) ~ "Sin Información",
+                                                     negocio=="Hotel Alcaravan" ~ "Hotel Alcaravan",  
+                                                     negocio=="HOTEL ALCARAVAN" ~ "Hotel Alcaravan",
+                                                     negocio=="HOTEL ALCARAVÁN" ~ "Hotel Alcaravan", 
+                                                     
+                                                     negocio=="Hotel Bosques de Athan" ~ "Hotel Bosques de Athan",
+                                                     negocio=="HOTEL BOSQUES DE ATHAN" ~ "Hotel Bosques de Athan",
+                                                     negocio=="HOTEL BOSQUES DE ATHÁN" ~ "Hotel Bosques de Athan",
+                                                     
+                                                     negocio=="Hotel Paipa" ~ "Hotel Paipa",
+                                                     negocio=="HOTEL PAIPA" ~ "Hotel Paipa",
+                                                     negocio=="HOTELES PAIPA" ~ "Hotel Paipa",
+                                                     
+                                                     negocio=="Hotel Peñalisa" ~ "Hotel Peñalisa",
+                                                     negocio=="HOTEL PEÑALISA" ~ "Hotel Peñalisa",
+                                                     
+                                                     negocio=="Piscilago" ~ "Piscilago",
+                                                     negocio=="PISCILAGO" ~ "Piscilago",
+                                                     
+                                                     negocio=="Club Bellavista" ~ "Club Bellavista",  
+                                                     negocio=="CLUB BELLAVISTA" ~ "Club Bellavista",
+                                                     
+                                                     negocio=="Club Calle 195" ~ "Club Calle 195",
+                                                     negocio=="CLUB CALLE 195" ~ "Club Calle 195",
+                                                     negocio=="CENTRO DEPORTIVO 195" ~ "CENTRO DEPORTIVO 195",
+                                                     
+                                                     negocio=="Club El Cubo" ~ "Club El Cubo",
+                                                     negocio=="CLUB EL CUBO" ~ "Club El Cubo",
+                                                     negocio=="CENTRO EMPRESARIAL Y RECREATIVO - EL CUBO" ~ "Club El Cubo",
+                                                     
+                                                     negocio=="Club la Colina" ~ "Club la Colina",
+                                                     negocio=="CLUB LA COLINA" ~ "Club la Colina",
+                                                     negocio=="CLUB COLINA" ~ "Club la Colina",
+                                                     
+                                                     negocio=="Programas Recreativos" ~ "Recreacion",
+                                                     negocio=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                     negocio=="PROGRAMAS RECREATIVOS " ~ "Recreacion",
+                                                     
+                                                     negocio=="Programas Deportivos" ~ "Deporte",
+                                                     negocio=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                     
+                                                     negocio=="Agencia de viajes" ~ "Turismo",
+                                                     negocio=="AGENCIA DE VIAJES" ~ "Turismo",
+                                                     
+                                                     negocio=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                     negocio=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                     
+                                                     negocio=="Otros" ~ "Otros",
+                                                     negocio=="OTROS" ~ "Otros",
+                                                     TRUE~ "Otros"))
+
+
+Ryt_emp %>% group_by(negocio,producto_h) %>% filter(fecha >= '2019-01-01') %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+
+Ryt_emp <- Ryt_emp %>% mutate(linea_Negocio=case_when(is.na(negocio) ~ "Sin Información",
+                                                      negocio=="Hotel Alcaravan" ~ "hoteles",  
+                                                      negocio=="HOTEL ALCARAVAN" ~ "hoteles",
+                                                      negocio=="HOTEL ALCARAVÁN" ~ "hoteles",
+                                                      
+                                                      negocio=="Hotel Bosques de Athan" ~ "hoteles",
+                                                      negocio=="HOTEL BOSQUES DE ATHAN" ~ "hoteles",
+                                                      negocio=="HOTEL BOSQUES DE ATHÁN" ~ "hoteles",
+                                                      
+                                                      negocio=="Hotel Paipa" ~ "hoteles",
+                                                      negocio=="HOTEL PAIPA" ~ "hoteles",
+                                                      negocio=="HOTELES PAIPA" ~ "hoteles",
+                                                      
+                                                      negocio=="Hotel Peñalisa" ~ "hoteles",
+                                                      negocio=="HOTEL PEÑALISA" ~ "hoteles",
+                                                      
+                                                      negocio=="Piscilago" ~ "Piscilago",
+                                                      negocio=="PISCILAGO" ~ "Piscilago",
+                                                      
+                                                      negocio=="Club Bellavista" ~ "clubes",  
+                                                      negocio=="CLUB BELLAVISTA" ~ "clubes",
+                                                      
+                                                      negocio=="Club Calle 195" ~ "clubes",
+                                                      negocio=="CLUB CALLE 195" ~ "clubes",
+                                                      negocio=="CENTRO DEPORTIVO 195" ~ "clubes",
+                                                      
+                                                      negocio=="Club El Cubo" ~ "clubes",
+                                                      negocio=="CLUB EL CUBO" ~ "clubes",
+                                                      negocio=="CENTRO EMPRESARIAL Y RECREATIVO - EL CUBO" ~ "clubes",
+                                                      
+                                                      negocio=="Club la Colina" ~ "clubes",
+                                                      negocio=="CLUB LA COLINA" ~ "clubes",
+                                                      negocio=="CLUB COLINA" ~ "clubes",
+                                                      
+                                                      negocio=="Programas Recreativos" ~ "Recreacion",
+                                                      negocio=="PROGRAMAS RECREATIVOS" ~ "Recreacion",
+                                                      negocio=="PROGRAMAS RECREATIVOS " ~ "Recreacion",
+                                                      
+                                                      negocio=="Programas Deportivos" ~ "Deporte",
+                                                      negocio=="PROGRAMAS DEPORTIVOS" ~ "Deporte",
+                                                      
+                                                      negocio=="Agencia de viajes" ~ "Turismo",
+                                                      negocio=="AGENCIA DE VIAJES" ~ "Turismo",
+                                                      
+                                                      negocio=="Eventos y Convenciones" ~ "Eventos y convenciones",
+                                                      negocio=="EVENTOS Y CONVENCIONES" ~ "Eventos y convenciones",
+                                                      
+                                                      negocio=="Otros" ~ "Otros",
+                                                      negocio=="OTROS" ~ "Otros",
+                                                      TRUE~ "Otros"))
+
+
+Ryt_emp %>% group_by(producto_h,linea_Negocio) %>% filter(fecha >= '2019-01-01') %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+
+## Preparar informacion
+Ryt_emp$fecha <- as.Date(Ryt_emp$fecha)
+Ryt_emp <- Ryt_emp %>% mutate(Fecha_H = format(as.Date(fecha, "%Y-%m"), "%Y%m"))
+
+
+#############################################################################################################
+#############################################################################################################
+
+## Resumen subproductos campo conceptos
+
+# Individual
+Tabla_concepto_ind <- Ryt_Ind %>% group_by(Fecha_H,producto_h,concepto) %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+write.csv2(Tabla_concepto_ind,'C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT/Tabla_Productos_Individual_Julian.csv', row.names = FALSE)
+remove(Tabla_concepto_ind)
+
+# Empresarial
+Tabla_concepto_emp <- Ryt_emp %>% group_by(Fecha_H,producto_h,concepto) %>% summarize(Ventas = sum(valor, na.rm = TRUE))
+write.csv2(Tabla_concepto_emp,'C:/Users/hernyatt/Desktop/Recreacion/Entregables/PPT/Tabla_Productos_Empresarial_Julian.csv', row.names = FALSE)
+remove(Tabla_concepto_emp)
+
+
+
+
