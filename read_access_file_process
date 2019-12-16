@@ -1,0 +1,110 @@
+
+
+###############
+## LIBRERIAS ##
+###############
+
+library(odbc)
+library(RODBC)
+library(tictoc)
+library(dplyr)
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(tseries)
+library(TSA)
+library(lubridate)
+library(plotly)
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(reshape)
+library(scales)
+library(plotly)
+library(mosaic)
+library(data.table)|
+gc()
+
+setwd("C:/Users/hernyatt/Desktop/RQ/05 - Homologacion_productos_RyT")
+
+
+Ryt_ind <- readRDS("C:/Users/hernyatt/Desktop/RQ/05 - Homologacion_productos_RyT/Ryt_ind.rds")
+
+
+Ryt_2019_ind <- Ryt_ind %>% filter(fecha >= '2019-01-09')
+
+
+names(Ryt_2019_ind)
+
+cubo <- Ryt_2019_ind %>% filter(producto_h== "Club El Cubo")
+
+natacion <- cubo %>% filter(grepl("NATA", concepto)) %>% filter(grepl("CC", id_persona))
+
+write.csv2(natacion, file = "natacion.csv")
+
+Cedulas <- read_excel("C:/Users/hernyatt/Desktop/Cedulas.xlsx")
+
+tic("Autorizacion")
+con <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=//BOGAK08beimrodc/BI/Contacto/Fuentes/Autorizacion.accdb")
+autorizacion <- sqlQuery(con , paste0("select * from tb_autorizaciones"))
+odbcCloseAll()
+rm(con)
+toc()
+
+autorizacion2 <- as.data.frame(unique(autorizacion[,1:2]))
+autorizacion2$id_persona <- as.character(autorizacion2$id_persona)
+
+cruce <- Cedulas %>% left_join(autorizacion2, by = "id_persona")
+
+tic("celular")
+con <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=//BOGAK08beimrodc/BI/Contacto/Fuentes/Celular.accdb")
+celular <- sqlQuery(con , paste0("select * from tb_celular"))
+odbcCloseAll()
+rm(con)
+toc()
+
+celular$id_persona <- as.character(celular$id_persona)
+celular_2 <- celular[,1:6]
+celular_2 <- celular_2[,-2]
+
+names(celular_2)
+str(celular$id_persona)
+
+cruce_celular <- cruce %>% left_join(celular_2, by = "id_persona")
+
+
+tic("Direccion")
+con <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=//BOGAK08beimrodc/BI/Contacto/Fuentes/Direccion.accdb")
+direccion <- sqlQuery(con , paste0("select * from tb_direccion_de_residencia"))
+odbcCloseAll()
+rm(con)
+toc()
+
+direccion$id_persona <- as.character(direccion$id_persona)
+direccion_2<-direccion[,1:6]
+direccion_2 <- direccion_2[,-2]
+
+names(direccion_2)
+str(direccion$id_persona)
+
+cruce_direccion <- cruce_celular %>% left_join(direccion_2, by = "id_persona")
+
+
+tic("Mail")
+con <- odbcDriverConnect( "Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=//BOGAK08beimrodc/BI/Contacto/Fuentes/Mail.accdb")
+mail <- sqlQuery(con , paste0("select * from tb_mail"))
+odbcCloseAll()
+rm(con)
+toc()
+
+mail$id_persona <- as.character(mail$id_persona)
+mail_2<-mail[,1:6]
+mail_2 <- mail_2[,-2]
+
+names(mail_2)
+str(direccion$id_persona)
+
+cruce_mail <- cruce_direccion %>% left_join(mail_2, by = "id_persona")
+
+write.csv2(cruce_mail, file = "contactabilidad.csv")
+
