@@ -1,0 +1,95 @@
+## Librerias ----
+library(readxl)
+library(readr)
+library(odbc)
+library(RODBC)
+library(tictoc)
+library(dplyr)
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(tseries)
+library(TSA)
+library(lubridate)
+library(plotly)
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(reshape)
+library(scales)
+library(plotly)
+library(mosaic)
+library(data.table)
+library(stringr)
+library(textreadr)
+library(rvest)
+require(utils)
+
+
+
+#### Extraccion de la URL URL de cada empresa ----
+
+url <- 'https://www.astroluna.co/dorado-noche'
+webpage <- read_html(url)
+
+
+test <- webpage %>%
+  html_nodes("table") %>%
+  html_table(header=T)
+
+test2 <- test[[1]]
+
+test2 <- as.data.frame(test2) %>% select(1,2)
+test2$Número <- as.character(test2$Número)
+test2 <- test2 %>% mutate(Largo = nchar(Número)) %>%
+  mutate(Número_h = ifelse(Largo < 4, paste(0,Número, sep = ''),Número)) %>%
+  select(1,4)
+
+test2 <- test2 %>%
+  mutate(one = str_sub(Número_h, 1, 1)) %>%
+  mutate(two = str_sub(Número_h, 2, 2)) %>%
+  mutate(three = str_sub(Número_h, 3, 3)) %>%
+  mutate(four = str_sub(Número_h, 4, 4))
+
+probabilidad <- 10^4
+
+tabla1 <- test2 %>%  group_by(one) %>% count() %>% arrange(desc(n)) %>% data.frame() %>% mutate(prop=n/sum(n)) %>% mutate(prop.acum=cumsum(prop))
+tabla2 <- test2 %>%  group_by(two) %>% count() %>% arrange(desc(n)) %>% data.frame() %>% mutate(prop=n/sum(n)) %>% mutate(prop.acum=cumsum(prop))
+tabla3 <- test2 %>%  group_by(three) %>% count() %>% arrange(desc(n)) %>% data.frame() %>% mutate(prop=n/sum(n)) %>% mutate(prop.acum=cumsum(prop))
+tabla4 <- test2 %>%  group_by(four) %>% count() %>% arrange(desc(n)) %>% data.frame() %>% mutate(prop=n/sum(n)) %>% mutate(prop.acum=cumsum(prop))
+
+duplicado <- test2 %>%  group_by(Número_h) %>% count() %>% arrange(desc(n))     
+
+
+top_1 <- tabla1 %>% filter(prop.acum < 0.30) %>% select(1)
+top_2 <-tabla2 %>% filter(prop.acum < 0.40) %>% select(1)
+top_3 <-tabla3 %>% filter(prop.acum < 0.30) %>% select(1)
+top_4 <-tabla4 %>% filter(prop.acum < 0.30) %>% select(1)
+
+num_elec <- cbind(top_1,top_2,top_3,top_4)
+
+num_elec_2 <- expand.grid(num_elec)
+num_elec_3 <- num_elec_2 %>% mutate(num = paste(one,two,three,four,sep = "")) %>% select(5)
+
+hist <- test2 %>% select(2)
+
+num_apostar<- num_elec_3 %>% anti_join(hist, by = c("num"="Número_h"))
+num_apost_join <- num_elec_3 %>% inner_join(hist, by = c("num"="Número_h"))
+
+View(num_apostar)
+
+
+top_5 <- tabla1 %>% filter(prop.acum > 0.90) %>% select(1)
+top_6 <-tabla2 %>% filter(prop.acum > 0.95) %>% select(1)
+top_7 <-tabla3 %>% filter(prop.acum > 0.90) %>% select(1)
+top_8 <-tabla4 %>% filter(prop.acum > 0.90) %>% select(1)
+
+num_elec2 <- cbind(top_5,top_6,top_7,top_8)
+
+num_elec_2_2 <- expand.grid(num_elec2)
+num_elec_3_2 <- num_elec_2_2 %>% mutate(num = paste(one,two,three,four,sep = "")) %>% select(5)
+
+num_apostar_2<- num_elec_3_2 %>% anti_join(hist, by = c("num"="Número_h"))
+num_apost_join_2 <- num_elec_3_2 %>% inner_join(hist, by = c("num"="Número_h"))
+
+View(num_apostar_2)
